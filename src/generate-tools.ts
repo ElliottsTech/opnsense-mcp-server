@@ -180,6 +180,45 @@ allPluginMethods.forEach(({ plugin, methods }) => {
   });
 });
 
+// Custom tools for endpoints not exposed by client library
+modularTools.push({
+  name: 'trust_cert_search',
+  description: 'Certificate search - Search and list certificates with full details including UUID, description, validity dates, usage flags, and certificate payloads',
+  module: 'trust',
+  methods: ['certSearch'],
+  inputSchema: {
+    type: 'object',
+    properties: {
+      method: {
+        type: 'string',
+        description: 'The method to call',
+        enum: ['certSearch']
+      },
+      params: {
+        type: 'object',
+        description: 'Search parameters',
+        properties: {
+          searchPhrase: {
+            type: 'string',
+            description: 'Search phrase to filter certificates (searches in description, common name, alt names)'
+          },
+          current: {
+            type: 'integer',
+            description: 'Current page number',
+            default: 1
+          },
+          rowCount: {
+            type: 'integer',
+            description: 'Number of rows per page',
+            default: 20
+          }
+        }
+      }
+    },
+    required: ['method']
+  }
+});
+
 console.log(`\nTotal modular tools generated: ${modularTools.length}`);
 console.log(`Core tools: ${modularTools.filter(t => t.module !== 'plugins').length}`);
 console.log(`Plugin tools: ${modularTools.filter(t => t.module === 'plugins').length}`);

@@ -8784,6 +8784,49 @@ const TOOLS = [
         "method"
       ]
     }
+  },
+  {
+    "name": "trust_cert_search",
+    "description": "Certificate search - Search and list certificates with full details including UUID, description, validity dates, usage flags, and certificate payloads",
+    "module": "trust",
+    "methods": [
+      "certSearch"
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "type": "string",
+          "description": "The method to call",
+          "enum": [
+            "certSearch"
+          ]
+        },
+        "params": {
+          "type": "object",
+          "description": "Search parameters",
+          "properties": {
+            "searchPhrase": {
+              "type": "string",
+              "description": "Search phrase to filter certificates (searches in description, common name, alt names)"
+            },
+            "current": {
+              "type": "integer",
+              "description": "Current page number",
+              "default": 1
+            },
+            "rowCount": {
+              "type": "integer",
+              "description": "Number of rows per page",
+              "default": 20
+            }
+          }
+        }
+      },
+      "required": [
+        "method"
+      ]
+    }
   }
 ];
 
@@ -9552,33 +9595,9 @@ const METHOD_DOCS = {
     ]
   },
   "trust": {
-    "toolName": "trust_manage",
+    "toolName": "trust_cert_search",
     "methods": [
-      "caCaInfo",
-      "caCaList",
-      "caDel",
-      "caGenerateFile",
-      "caGet",
-      "caRawDump",
-      "caSet",
-      "certAdd",
-      "certCaInfo",
-      "certCaList",
-      "certDel",
-      "certGenerateFile",
-      "certGet",
-      "certRawDump",
-      "certSet",
-      "certUserList",
-      "crlDel",
-      "crlGet",
-      "crlGetOcspInfoData",
-      "crlRawDump",
-      "crlSearch",
-      "crlSet",
-      "settingsGet",
-      "settingsReconfigure",
-      "settingsSet"
+      "certSearch"
     ]
   },
   "unbound": {
@@ -11355,16 +11374,24 @@ class OPNsenseMCPServer {
 
   async callModularTool(tool, args) {
     const client = this.ensureClient();
-    
+
     // Validate method parameter
     if (!args.method) {
       throw new Error(`Missing required parameter 'method'. Available methods: ${tool.methods.join(', ')}`);
     }
-    
+
     if (!tool.methods.includes(args.method)) {
       throw new Error(`Invalid method '${args.method}'. Available methods: ${tool.methods.join(', ')}`);
     }
-    
+
+    // Special handling for custom endpoints not in client library
+    if (tool.name === 'trust_cert_search' && args.method === 'certSearch') {
+      console.error(`Calling custom endpoint: /api/trust/cert/search with params:`, args.params);
+      const { params = {} } = args;
+      const response = await client.trust.http.get('/api/trust/cert/search', params);
+      return response.data;
+    }
+
     // Get the module
     let moduleObj;
     if (tool.module === 'plugins' && tool.submodule) {
@@ -11385,11 +11412,11 @@ class OPNsenseMCPServer {
 
     // Call the method with params (if provided)
     console.error(`Calling ${tool.module}.${args.method} with params:`, args.params);
-    
+
     // Extract params, excluding the method field
     const { method: _, params = {}, ...otherArgs } = args;
     const callParams = { ...params, ...otherArgs };
-    
+
     // Only pass parameters if there are any
     if (Object.keys(callParams).length > 0) {
       return await method.call(moduleObj, callParams);
@@ -11402,9 +11429,9 @@ class OPNsenseMCPServer {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     console.error('OPNsense MCP server v0.6.0 (modular) started');
-    console.error(`Core tools: 24 modules`);
+    console.error(`Core tools: 25 modules`);
     console.error(`Plugin tools: 64 modules (${this.config.includePlugins ? 'enabled' : 'disabled'})`);
-    console.error(`Total available: ${this.config.includePlugins ? '88' : '24'} modules`);
+    console.error(`Total available: ${this.config.includePlugins ? '89' : '25'} modules`);
   }
 }
 
@@ -11474,10 +11501,10 @@ Environment Variables:
   INCLUDE_PLUGINS           Set to 'true' to include plugin tools
 
 Examples:
-  # Basic usage (24 core modules)
+  # Basic usage (25 core modules)
   opnsense-mcp-server --url https://192.168.1.1 --api-key mykey --api-secret mysecret
 
-  # With plugins enabled (88 total modules)
+  # With plugins enabled (89 total modules)
   opnsense-mcp-server --url https://192.168.1.1 --api-key mykey --api-secret mysecret --plugins
 
 Tool Usage:

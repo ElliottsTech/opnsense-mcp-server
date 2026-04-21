@@ -127,16 +127,24 @@ class OPNsenseMCPServer {
 
   async callModularTool(tool, args) {
     const client = this.ensureClient();
-    
+
     // Validate method parameter
     if (!args.method) {
       throw new Error(\`Missing required parameter 'method'. Available methods: \${tool.methods.join(', ')}\`);
     }
-    
+
     if (!tool.methods.includes(args.method)) {
       throw new Error(\`Invalid method '\${args.method}'. Available methods: \${tool.methods.join(', ')}\`);
     }
-    
+
+    // Special handling for custom endpoints not in client library
+    if (tool.name === 'trust_cert_search' && args.method === 'certSearch') {
+      console.error(\`Calling custom endpoint: /api/trust/cert/search with params:\`, args.params);
+      const { params = {} } = args;
+      const response = await client.trust.http.get('/api/trust/cert/search', params);
+      return response.data;
+    }
+
     // Get the module
     let moduleObj;
     if (tool.module === 'plugins' && tool.submodule) {
@@ -157,11 +165,11 @@ class OPNsenseMCPServer {
 
     // Call the method with params (if provided)
     console.error(\`Calling \${tool.module}.\${args.method} with params:\`, args.params);
-    
+
     // Extract params, excluding the method field
     const { method: _, params = {}, ...otherArgs } = args;
     const callParams = { ...params, ...otherArgs };
-    
+
     // Only pass parameters if there are any
     if (Object.keys(callParams).length > 0) {
       return await method.call(moduleObj, callParams);
